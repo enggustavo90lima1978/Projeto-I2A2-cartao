@@ -19,7 +19,9 @@ from backend.agents import OrchestratorAgent
 def _load_csv(file_like_object, **kwargs) -> pd.DataFrame | None:
     """Lê um objeto semelhante a um arquivo CSV e retorna um DataFrame."""
     try:
-        return pd.read_csv(file_like_object, **kwargs)
+        separator = st.session_state.get("csv_separator") or ','
+        return pd.read_csv(file_like_object, sep=separator, **kwargs)
+
     except Exception as e:
         st.error(f"Erro ao ler o arquivo CSV: {e}")
         return None
@@ -167,6 +169,21 @@ def render_sidebar() -> None:
 def render_file_upload() -> None:
     """Renderiza a seção de upload de arquivos."""
     st.header("1. Carregue seu arquivo CSV")
+
+    # Opções para o separador do CSV
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        separator_option = st.radio(
+            "Separador do CSV",
+            [", (Vírgula)", "; (Ponto e vírgula)", "Outro"],
+            key="csv_separator_option",
+        )
+    with col2:
+        if separator_option == "Outro":
+            st.session_state.csv_separator = st.text_input("Digite o separador")
+        else:
+            st.session_state.csv_separator = separator_option.split(" ")[0]
+
     uploaded_file = st.file_uploader(
         "Selecione um arquivo CSV ou ZIP para análise", type=["csv", "zip"]
     )
@@ -183,8 +200,10 @@ def render_file_upload() -> None:
                 st.session_state.orchestrator_memory.clear()
                 st.session_state.chat_history = []
                 st.success(f"Arquivo '{uploaded_file.name}' carregado com sucesso!")
-                st.dataframe(st.session_state.current_dataframe.head())
                 initialize_agent()
+
+            if not dataframe.empty:
+                st.dataframe(st.session_state.current_dataframe.head())
 
 
 def render_chat_interface() -> None:
@@ -256,6 +275,7 @@ def initialize_session_state() -> None:
         "charts": [],
         "agent_initialized": False,
         "debug_mode": False,
+        "csv_separator": ",",
     }
     for key, value in defaults.items():
         st.session_state.setdefault(key, value)
